@@ -5,42 +5,59 @@ namespace CrytographyProtocol {
     operation Main() : Unit {
         use qubit = Qubit();
 
-        TransmitQubit();
+        let key = EstablishKey(20);
+        Message($"The shared key is: {key}");
 
         Reset(qubit);
     }
 
-    // send a qubit from alice to bob and print if the basis used match 
-    operation TransmitQubit() : Unit {
+    // attempts - how many qubits to send
+    // creates a key based off of times when alice and bob use the same basis
+    operation EstablishKey(attempts : Int) : String {
+        mutable str = "";
+
+        for i in 0..(attempts-1) {
+            let transmission = TransmitQubit();
+
+            // we have successfully teleported information
+            if(transmission[0] == One) {
+                mutable res = "0";
+                if(transmission[1] == One) {
+                    set res = "1";
+                }
+
+                set str = str + " " + res;
+            }
+        }
+
+        return str;
+    }
+
+    // send a qubit from alice to bob and returns the transmission's result with a bit signifying if it was successful
+    operation TransmitQubit() : Result[] {
         use qubit = Qubit();
 
-        let aliceVal = Rand();
-        if(aliceVal == One) {
+        if(Rand() == One) {
             X(qubit);
         }
 
         let aliceMat = ConvertToRandomBasis(qubit);
         let bobMat = ConvertToRandomBasis(qubit);
 
-        if (aliceMat == bobMat) {
-            Message("Alice and Bob's Bases match!")
-        }else {
-            Message("Alice and Bob did not choose the same basis...")
-        }
-
         let bobMeasure = M(qubit);
-
-        Message($"Alice sent: {aliceVal}");
-        Message($"Bob observed: {bobMeasure}");
-
         Reset(qubit);
+
+        if(aliceMat == bobMat) {
+            return [One, bobMeasure];
+        }else {
+            return [Zero, bobMeasure];
+        }
     }
 
     // converts a qubit to a random basis (either standard or hadamard)
     // returns 0 if it was the standard basis (does nothing)
     // returns 1 if it was the hadamard basis (applies hadamard gate)
     operation ConvertToRandomBasis(qubit : Qubit) : Result {
-        let result = Rand();
         if(Rand() == One) {
             H(qubit);
             return One;

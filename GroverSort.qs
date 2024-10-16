@@ -19,85 +19,28 @@ namespace GroverSort {
         use order1 = Qubit[2];
         use order2 = Qubit[2];
         use order3 = Qubit[2];
-        
-        // rotate the first qubit into sqrt(2)/sqrt(3)|0> + 1/sqrt(3)|1>
-        Ry(2.0*0.61547970867, order1[0]);
 
-        // apply a hadamard when the top qubit is in |0>, requiring an X gate
-        X(order1[0]);
-        ControlledH(order1[0],order1[1]) ;
-        X(order1[0]);   
-
-        // for the second index:
-        H(order2[1]);
-        X(order1[0]);
-        CCH(order1[0], order1[1], order2[0]);
-        CCH(order1[0], order1[1], order2[1]);
-        X(order1[0]);
-
-        ApplyXAll(order1);
-        CCNOT(order1[0], order1[1], order2[0]);
-        CCCNOT(order1[0], order1[1], order2[1], order2[0], ancillia[0]);
-        ApplyXAll(order1);
-
-        // for the third index:
-        CNOT(order1[0], order2[0]);
-        X(order2[0]);
-        CNOT(order2[0], order3[0]);
-        X(order2[0]);
-        CNOT(order1[0], order2[0]);
-
-        CNOT(order1[1], order2[1]);
-        X(order2[1]);
-        CNOT(order2[1], order3[1]);
-        X(order2[1]);
-        CNOT(order1[1], order2[1]);
-
+        // define extra qubits need to find the sorted array
         use val1 = Qubit[2];
         use val2 = Qubit[2];
         use val3 = Qubit[2];
 
-        ApplyCNOTValuesToValQubits(ar, order1, val1);
-        ApplyCNOTValuesToValQubits(ar, order2, val2);
-        ApplyCNOTValuesToValQubits(ar, order3, val3);
-
         use greaterRes = Qubit[2];
-
-        GreaterThan(val2, val1, greaterRes[0], ancillia);
-        GreaterThan(val3, val2, greaterRes[1], ancillia);
 
         use phaseInverter = Qubit();
         X(phaseInverter);
         H(phaseInverter);
 
-        // invert phase using greater than results
-        CCNOT(greaterRes[0], greaterRes[1], phaseInverter);
+        let ops = 1;
+        EnterQuantumOrder([order1, order2, order3], ancillia[0]);
+
+        // perform amplification of desired state ops times
+        for i in 0..(ops-1) {
+            InvertPhaseOfSortedArray(ar, ancillia, greaterRes, [order1, order2, order3], [val1, val2, val3], phaseInverter);
+            ApplyDiffusionOperator(ancillia, [order1, order2, order3], phaseInverter);
+        }
 
         DumpMachine();
-
-        // now that we have inverted phase, we have to undo previous steps...
-        GreaterThan(val3, val2, greaterRes[1], ancillia);
-        GreaterThan(val2, val1, greaterRes[0], ancillia);
-        ApplyCNOTValuesToValQubits(ar, order3, val3);
-        ApplyCNOTValuesToValQubits(ar, order2, val2);
-        ApplyCNOTValuesToValQubits(ar, order1, val1);
-
-        // apply diffusion operator
-        ApplyHAll(order1);
-        ApplyHAll(order2);
-        ApplyHAll(order3);
-        ApplyXAll(order1);
-        ApplyXAll(order2);
-        ApplyXAll(order3);
-        C6NOT(ancillia, order1, order2, order3, phaseInverter);
-        ApplyXAll(order1);
-        ApplyXAll(order2);
-        ApplyXAll(order3);
-        ApplyHAll(order1);
-        ApplyHAll(order2);
-        ApplyHAll(order3);
-
-        //DumpMachine();
 
         let answer = [[M(order1[1]), M(order1[0])],[M(order2[1]), M(order2[0])],[M(order3[1]), M(order3[0])]];
         let answerIndices = [ResultArrayAsInt(answer[0]), ResultArrayAsInt(answer[1]), ResultArrayAsInt(answer[2])];
@@ -123,6 +66,102 @@ namespace GroverSort {
         }
 
         return output;
+    }
+
+    operation EnterQuantumOrder(qOrdering : Qubit[][], ancillia : Qubit) : Unit {
+        // rotate the first qubit into sqrt(2)/sqrt(3)|0> + 1/sqrt(3)|1>
+        Ry(2.0*0.61547970867, qOrdering[0][0]);
+
+        // apply a hadamard when the top qubit is in |0>, requiring an X gate
+        X(qOrdering[0][0]);
+        ControlledH(qOrdering[0][0],qOrdering[0][1]) ;
+        X(qOrdering[0][0]);   
+
+        // for the second index:
+        H(qOrdering[1][1]);
+        X(qOrdering[0][0]);
+        CCH(qOrdering[0][0], qOrdering[0][1], qOrdering[1][0]);
+        CCH(qOrdering[0][0], qOrdering[0][1], qOrdering[1][1]);
+        X(qOrdering[0][0]);
+
+        ApplyXAll(qOrdering[0]);
+        CCNOT(qOrdering[0][0], qOrdering[0][1], qOrdering[1][0]);
+        CCCNOT(qOrdering[0][0], qOrdering[0][1], qOrdering[1][1], qOrdering[1][0], ancillia);
+        ApplyXAll(qOrdering[0]);
+
+        // for the third index:
+        CNOT(qOrdering[0][0], qOrdering[1][0]);
+        X(qOrdering[1][0]);
+        CNOT(qOrdering[1][0], qOrdering[2][0]);
+        X(qOrdering[1][0]);
+        CNOT(qOrdering[0][0], qOrdering[1][0]);
+
+        CNOT(qOrdering[0][1], qOrdering[1][1]);
+        X(qOrdering[1][1]);
+        CNOT(qOrdering[1][1], qOrdering[2][1]);
+        X(qOrdering[1][1]);
+        CNOT(qOrdering[0][1], qOrdering[1][1]);
+    }
+    operation ExitQuantumOrder(qOrdering : Qubit[][], ancillia : Qubit) : Unit {
+        CNOT(qOrdering[0][1], qOrdering[1][1]);
+        X(qOrdering[1][1]);
+        CNOT(qOrdering[1][1], qOrdering[2][1]);
+        X(qOrdering[1][1]);
+        CNOT(qOrdering[0][1], qOrdering[1][1]);
+
+        CNOT(qOrdering[0][0], qOrdering[1][0]);
+        X(qOrdering[1][0]);
+        CNOT(qOrdering[1][0], qOrdering[2][0]);
+        X(qOrdering[1][0]);
+        CNOT(qOrdering[0][0], qOrdering[1][0]);
+
+        ApplyXAll(qOrdering[0]);
+        CCCNOT(qOrdering[0][0], qOrdering[0][1], qOrdering[1][1], qOrdering[1][0], ancillia);
+        CCNOT(qOrdering[0][0], qOrdering[0][1], qOrdering[1][0]);
+        X(qOrdering[0][0]);
+        H(qOrdering[1][1]);
+
+        X(qOrdering[0][0]);
+        ControlledH(qOrdering[0][0],qOrdering[0][1]) ;
+        X(qOrdering[0][0]);   
+
+        Ry(2.0*0.61547970867, qOrdering[0][0]);
+    }
+
+    // perform a Uf phase inversion then apply the adjoint Uf
+    // after phase is inverted and extra work is done, the desired value is amplified with the diffusion operator
+    // ancillia contains 4 qubits, greaterThanAncillia contains 2 qubits
+    operation InvertPhaseOfSortedArray(ar : Int[], ancillia : Qubit[], greaterThanAncillia : Qubit[], ordering : Qubit[][], qValues : Qubit[][], phaseInverter : Qubit) : Unit {
+        // load array values
+        for i in IndexRange(ordering) {
+            ApplyCNOTValuesToValQubits(ar, ordering[i], qValues[i]);
+        }
+
+        // look for the state that contains a sorted array - invert that one's phase
+        GreaterThan(qValues[1], qValues[0], greaterThanAncillia[0], ancillia);
+        GreaterThan(qValues[2], qValues[1], greaterThanAncillia[1], ancillia);
+        CCNOT(greaterThanAncillia[0], greaterThanAncillia[1], phaseInverter);
+
+        // we now need to undo past work for the diffusion operator
+        GreaterThan(qValues[2], qValues[1], greaterThanAncillia[1], ancillia);
+        GreaterThan(qValues[1], qValues[0], greaterThanAncillia[0], ancillia);
+        for i in IndexRange(ordering) {
+            ApplyCNOTValuesToValQubits(ar, ordering[i], qValues[i]);
+        }
+    }
+
+    // ancillia is 4 qubits
+    operation ApplyDiffusionOperator(ancillia : Qubit[], ordering : Qubit[][], phaseInverter : Qubit) : Unit {
+        // diffusion operator time :)
+        for i in IndexRange(ordering) {
+            ApplyHAll(ordering[i]);
+            ApplyXAll(ordering[i]);
+        }
+        C6NOT(ancillia, ordering[0], ordering[1], ordering[2], phaseInverter);
+        for i in IndexRange(ordering) {
+            ApplyXAll(ordering[i]);
+            ApplyHAll(ordering[i]);
+        }
     }
 
     // note that source is essentially an order qubit which tells

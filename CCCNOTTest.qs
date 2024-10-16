@@ -12,7 +12,8 @@ namespace CCCNOTGate {
             H(qubits[i]);
         }
 
-        CCCNOT(qubits[0],qubits[1],qubits[2],output);
+        //CCCNOT(qubits[0],qubits[1],qubits[2],output);
+        CCCNOT(qubits, output);
 
         DumpMachine();
 
@@ -20,13 +21,17 @@ namespace CCCNOTGate {
         Reset(output);
     }
 
-    operation CCCNOT(control1 : Qubit, control2 : Qubit, control3 : Qubit, target : Qubit) : Unit {
-        use ancillia = Qubit();
+    // operation CCCNOT(control1 : Qubit, control2 : Qubit, control3 : Qubit, target : Qubit) : Unit {
+    //     use ancillia = Qubit();
 
-        CCNOT(control1, control2, ancillia);
-        CCNOT(control3, ancillia, target);
-        CCNOT(control1, control2, ancillia); // return ancillia back to |0>
+    //     CCNOT(control1, control2, ancillia);
+    //     CCNOT(control3, ancillia, target);
+    //     CCNOT(control1, control2, ancillia); // return ancillia back to |0>
 
-        Reset(ancillia);
+    //     Reset(ancillia);
+    // }
+
+    operation CCCNOT(control : Qubit[], target : Qubit) : Unit {
+        (Controlled X)(control, target);
     }
 }

@@ -31,7 +31,7 @@ namespace GroverSort {
         X(phaseInverter);
         H(phaseInverter);
 
-        let ops = 1;
+        let ops = 1; // Note - currently does not work if ops > 1
         EnterQuantumOrder([order1, order2, order3], ancillia[0]);
 
         // perform amplification of desired state ops times
